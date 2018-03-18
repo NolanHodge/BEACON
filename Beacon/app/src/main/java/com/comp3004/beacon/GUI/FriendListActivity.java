@@ -60,6 +60,7 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
 public class FriendListActivity extends AppCompatActivity {
 
@@ -213,9 +214,9 @@ public class FriendListActivity extends AppCompatActivity {
 
                                 break;
                             case 1:
-                                final ArrayList<String> members = new ArrayList<>();
-                                members.add(friendsList.get(userIndex).getUserId());
-                                members.add(CurrentBeaconUser.getInstance().getUserId());
+                                final HashMap<String, String> members = new HashMap<>();
+                                members.put(friendsList.get(userIndex).getUserId(), friendsList.get(userIndex).getDisplayName());
+                                members.put(CurrentBeaconUser.getInstance().getUserId(), CurrentBeaconUser.getInstance().getDisplayName());
 
                                 BeaconDatabase.getChats().addListenerForSingleValueEvent(new ValueEventListener() {
                                     @Override
@@ -240,7 +241,7 @@ public class FriendListActivity extends AppCompatActivity {
                                             DatabaseReference ref = FirebaseDatabase.getInstance().getReference("chats").push();
                                             chat.setKey(ref.getKey());
                                             ref.setValue(chat);
-
+                                            intent.putExtra("chat", chat);
                                             startActivity(intent);
                                         }
                                     }

@@ -10,7 +10,7 @@
 
     <item
         android:id="@+id/chat_threads"
-        android:icon="@drawable/chat_bubble2"
+        android:icon="@drawable/ic_message_white_24dp"
         android:title="Messages"
         app:showAsAction="ifRoom" />
 </menu>

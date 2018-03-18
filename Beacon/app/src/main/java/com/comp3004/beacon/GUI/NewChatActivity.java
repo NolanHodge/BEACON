@@ -1,16 +1,16 @@
 package com.comp3004.beacon.GUI;
 
 import android.Manifest;
-import android.content.BroadcastReceiver;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.location.Location;
 import android.location.LocationManager;
+import android.os.AsyncTask;
+import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
-import android.support.v4.app.FragmentManager;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.support.v7.widget.Toolbar;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -20,7 +20,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
-import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -28,12 +27,7 @@ import android.widget.TextView;
 import com.comp3004.beacon.BeaconDatabase;
 import com.comp3004.beacon.Chat;
 import com.comp3004.beacon.LocationManagement.LocationService;
-import com.comp3004.beacon.LocationManagement.MyLocationManager;
 import com.comp3004.beacon.Message;
-import com.comp3004.beacon.Networking.ChatMessage;
-import com.comp3004.beacon.Networking.GetImage;
-import com.comp3004.beacon.Networking.MailBox;
-import com.comp3004.beacon.Networking.MessageSenderHandler;
 import com.comp3004.beacon.R;
 import com.comp3004.beacon.User.BeaconUser;
 import com.comp3004.beacon.User.CurrentBeaconUser;
@@ -41,8 +35,9 @@ import com.facebook.Profile;
 import com.google.firebase.database.ChildEventListener;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -50,50 +45,45 @@ import java.util.HashMap;
 public class NewChatActivity extends AppCompatActivity {
     Chat chat;
     ArrayList<Message> messages = new ArrayList<>();
+    ArrayList<BeaconUser> members = new ArrayList<>();
     HashMap<String, Bitmap> bitmaps = new HashMap<>();
     ListView chatListView;
     EditText chatTextbox;
     ChatAdapter adapter;
+    String names = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
-        Toolbar toolbar = (Toolbar) findViewById(R.id.chat_toolbar);
+
+        final Toolbar toolbar = (Toolbar) findViewById(R.id.chat_toolbar);
         setSupportActionBar(toolbar);
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         getSupportActionBar().setHomeButtonEnabled(true);
 
 
-        adapter = new ChatAdapter();
         chat = getIntent().getParcelableExtra("chat");
 
         chatListView = (ListView) findViewById(R.id.chatListView);
         chatTextbox = (EditText) findViewById(R.id.chatEditText);
         chatListView.setTranscriptMode(ListView.TRANSCRIPT_MODE_NORMAL);
-        chatListView.setAdapter(adapter);
-
-        BeaconDatabase.getChatMessages(chat.getKey()).addChildEventListener(new ChildEventListener() {
+        BeaconDatabase.getUsers().addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
-            public void onChildAdded(DataSnapshot dataSnapshot, String s) {
-                Message message = dataSnapshot.getValue(Message.class);
-                adapter.add(message);
-                adapter.notifyDataSetChanged();
-            }
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
+                    BeaconUser beaconUser = snapshot.getValue(BeaconUser.class);
 
-            @Override
-            public void onChildChanged(DataSnapshot dataSnapshot, String s) {
+                    if (chat.getMembers().get(beaconUser.getUserId()) != null &&
+                            !beaconUser.getUserId().equals(CurrentBeaconUser.getInstance().getUserId())) {
+                        names += beaconUser.getDisplayName() + ", ";
+                        members.add(beaconUser);
 
-            }
-
-            @Override
-            public void onChildRemoved(DataSnapshot dataSnapshot) {
-
-            }
-
-            @Override
-            public void onChildMoved(DataSnapshot dataSnapshot, String s) {
-
+                    }
+                }
+                members.add(CurrentBeaconUser.getInstance());
+                toolbar.setTitle(names.substring(0, names.length() - 2));
+                new getMultipleImages().execute(members);
             }
 
             @Override
@@ -109,7 +99,7 @@ public class NewChatActivity extends AppCompatActivity {
             return;
         }
         Message message = new Message();
-        message.setFrom(Profile.getCurrentProfile().getId());
+        message.setFrom(CurrentBeaconUser.getInstance().getUserId());
         message.setDateSent(new Date().getTime());
         message.setBody(chatTextbox.getText().toString());
         message.setRead(false);
@@ -192,7 +182,10 @@ public class NewChatActivity extends AppCompatActivity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.menu_request_beacon) {
+        if (item.getItemId() == android.R.id.home) {
+            onBackPressed();
+            return true;
+        } else if (item.getItemId() == R.id.menu_request_beacon) {
             //MessageSenderHandler.getInstance().sendLocationRequest(otherChatParticipantId);
             return true;
         } else if (item.getItemId() == R.id.menu_send_beacon) {
@@ -232,5 +225,59 @@ public class NewChatActivity extends AppCompatActivity {
         public ImageView leftIcon;
         public ImageView rightIcon;
         public View layout;
+    }
+
+    private class getMultipleImages extends AsyncTask<ArrayList<BeaconUser>, Void, HashMap<String, Bitmap>> {
+        @Override
+        protected HashMap<String, Bitmap> doInBackground(ArrayList<BeaconUser>... params) {
+            HashMap<String, Bitmap> icons = new HashMap<>();
+            for (BeaconUser u : params[0]) {
+                try {
+                    InputStream in = new java.net.URL(u.getPhotoUrl()).openStream();
+                    icons.put(u.getUserId(), BitmapFactory.decodeStream(in));
+                    in.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            return icons;
+        }
+
+        @Override
+        protected void onPostExecute(HashMap<String, Bitmap> stringBitmapHashMap) {
+            bitmaps = stringBitmapHashMap;
+            System.out.println(bitmaps);
+            adapter = new ChatAdapter();
+            chatListView.setAdapter(adapter);
+
+            BeaconDatabase.getChatMessages(chat.getKey()).addChildEventListener(new ChildEventListener() {
+                @Override
+                public void onChildAdded(DataSnapshot dataSnapshot, String s) {
+                    Message message = dataSnapshot.getValue(Message.class);
+                    adapter.add(message);
+                    adapter.notifyDataSetChanged();
+                }
+
+                @Override
+                public void onChildChanged(DataSnapshot dataSnapshot, String s) {
+
+                }
+
+                @Override
+                public void onChildRemoved(DataSnapshot dataSnapshot) {
+
+                }
+
+                @Override
+                public void onChildMoved(DataSnapshot dataSnapshot, String s) {
+
+                }
+
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
+
+                }
+            });
+        }
     }
 }

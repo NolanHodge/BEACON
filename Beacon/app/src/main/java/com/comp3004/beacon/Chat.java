@@ -4,11 +4,12 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
 public class Chat implements Parcelable {
     String key;
     ArrayList<Message> messages = new ArrayList<>();
-    ArrayList<String> members = new ArrayList<>();
+    HashMap<String, String> members = new HashMap<>();
 
     public Chat() {
 
@@ -17,7 +18,15 @@ public class Chat implements Parcelable {
     protected Chat(Parcel in) {
         key = in.readString();
         in.readTypedList(messages, Message.CREATOR);
-        members = in.createStringArrayList();
+        int x = in.readInt();
+        String[] keys = new String[x];
+        String[] values = new String[x];
+        in.readStringArray(keys);
+        in.readStringArray(values);
+        members = new HashMap<>();
+        for (int i = 0; i < keys.length; i++) {
+            members.put(keys[i], values[i]);
+        }
     }
 
     public static final Creator<Chat> CREATOR = new Creator<Chat>() {
@@ -44,11 +53,11 @@ public class Chat implements Parcelable {
         return messages;
     }
 
-    public ArrayList<String> getMembers() {
+    public HashMap<String, String> getMembers() {
         return members;
     }
 
-    public void setMembers(ArrayList<String> members) {
+    public void setMembers(HashMap<String, String> members) {
         this.members = members;
     }
 
@@ -65,7 +74,14 @@ public class Chat implements Parcelable {
     public void writeToParcel(Parcel parcel, int i) {
         parcel.writeString(key);
         parcel.writeTypedList(messages);
-        parcel.writeStringList(members);
+        String[] keys = members.keySet().toArray(new String[members.size()]);
+        String[] values = new String[members.size()];
+        for (int x = 0; x < keys.length; x++) {
+            values[x] = members.get(keys[x]);
+        }
+        parcel.writeInt(members.size());
+        parcel.writeStringArray(keys);
+        parcel.writeStringArray(values);
     }
 
     public Message getLastMessage() {

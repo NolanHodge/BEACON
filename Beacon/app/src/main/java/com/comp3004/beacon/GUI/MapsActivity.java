@@ -47,6 +47,7 @@ import com.comp3004.beacon.FirebaseServices.DatabaseManager;
 import com.comp3004.beacon.FirebaseServices.MyService;
 import com.comp3004.beacon.LocationManagement.LocationService;
 import com.comp3004.beacon.LocationManagement.MyLocationManager;
+import com.comp3004.beacon.MessageService;
 import com.comp3004.beacon.NotificationHandlers.CurrentBeaconInvitationHandler;
 import com.comp3004.beacon.NotificationHandlers.CurrentFriendRequestsHandler;
 import com.comp3004.beacon.NotificationHandlers.CurrentLocationRequestHandler;
@@ -130,6 +131,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         setContentView(R.layout.activity_maps);
         RUNNING = true;
         serviceIntent = new Intent(this, MyService.class);
+        startService(new Intent(this, MessageService.class));
         context = this;
 
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
